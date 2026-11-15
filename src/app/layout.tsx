@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "OdysSee — Live web inspector",
-  description: "A human-readable X-ray view of the web."
+  title: "OdysSee — See through all",
+  description: "A gamified lens for the web that surfaces hidden elements, trackers and risky scripts."
 };
 
 export default function RootLayout({

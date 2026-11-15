@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 
 type Severity = "High Risk" | "Low Risk" | "Info";
+type Category = "Page" | "Hidden element" | "Third-party script" | "Tracking endpoint" | "Form";
 
 type Finding = {
   id: string;
-  category: "Page" | "Hidden element" | "Third-party script" | "Tracking endpoint" | "Form";
+  category: Category;
   severity: Severity;
   description: string;
   selector?: string;
@@ -21,90 +22,66 @@ type Inspection = {
 };
 
 const PRESETS = [
-  { label: "Simulated checkout flow", url: "https://www.amazon.com/gp/buy/" },
-  { label: "Affiliate-heavy review site", url: "https://www.nytimes.com/wirecutter/" },
-  { label: "SaaS pricing page", url: "https://stripe.com/pricing" }
+  { label: "Checkout flow", url: "https://www.amazon.com/gp/buy/" },
+  { label: "Affiliate review site", url: "https://www.nytimes.com/wirecutter/" },
+  { label: "Pricing page", url: "https://stripe.com/pricing" }
 ];
 
-function Icon({
-  name,
-  className
-}: {
-  name: "eye" | "scan" | "lock" | "globe" | "activity" | "loader" | "shield" | "external";
-  className?: string;
-}) {
-  const paths: Record<typeof name, React.ReactNode> = {
-    eye: (
-      <>
-        <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
-        <circle cx="12" cy="12" r="3" />
-      </>
-    ),
-    scan: (
-      <>
-        <path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
-        <path d="M4 12h16M12 4v16" />
-      </>
-    ),
-    lock: (
-      <>
-        <rect x="4" y="10" width="16" height="11" rx="2" />
-        <path d="M8 10V7a4 4 0 1 1 8 0v3M12 14v3" />
-      </>
-    ),
-    globe: (
-      <>
-        <circle cx="12" cy="12" r="10" />
-        <path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" />
-      </>
-    ),
-    activity: (
-      <>
-        <path d="M3 12h4l3-8 4 16 3-8h4" />
-      </>
-    ),
-    loader: <path d="M12 2a10 10 0 1 0 10 10" />,
-    shield: (
-      <>
-        <path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" />
-        <path d="m9 12 2 2 4-4" />
-      </>
-    ),
-    external: (
-      <>
-        <path d="M14 3h7v7M10 14 21 3" />
-        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      </>
-    )
-  };
+// Each kind of finding is an encounter from the voyage home.
+const ENCOUNTERS: Record<Category, string> = {
+  "Hidden element": "Siren",
+  "Tracking endpoint": "Cyclops",
+  "Third-party script": "Stranger’s sail",
+  Form: "Circe’s door",
+  Page: "Landmark"
+};
 
-  return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.7"
-      viewBox="0 0 24 24"
-    >
-      {paths[name]}
-    </svg>
-  );
+function voyage(findings: Finding[]) {
+  const high = findings.filter((f) => f.severity === "High Risk").length;
+  const low = findings.filter((f) => f.severity === "Low Risk").length;
+  const hull = Math.max(0, 100 - high * 14 - low * 5);
+  const rank = hull >= 85 ? "Calm seas" : hull >= 60 ? "Choppy water" : hull >= 35 ? "Stormy crossing" : "Shipwreck";
+  const tone = hull >= 85 ? "calm" : hull >= 60 ? "choppy" : "storm";
+  return { high, low, hull, rank, tone };
 }
 
 function severityClass(severity: Severity) {
-  if (severity === "High Risk") return "severity severity-high";
-  if (severity === "Low Risk") return "severity severity-low";
-  return "severity severity-info";
+  if (severity === "High Risk") return "tag tag-high";
+  if (severity === "Low Risk") return "tag tag-low";
+  return "tag tag-info";
 }
 
-function eventIcon(category: Finding["category"]) {
-  if (category === "Third-party script" || category === "Tracking endpoint") return "external";
-  if (category === "Hidden element") return "eye";
-  if (category === "Form") return "lock";
-  return "globe";
+function Eye({ scanning }: { scanning: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={scanning ? "eye eye-scanning" : "eye"}
+      viewBox="0 0 240 140"
+    >
+      <defs>
+        <clipPath id="eye-shape">
+          <path d="M8 70C50 14 190 14 232 70C190 126 50 126 8 70Z" />
+        </clipPath>
+        <clipPath id="iris-shape">
+          <circle cx="120" cy="70" r="40" />
+        </clipPath>
+      </defs>
+      <path className="eye-white" d="M8 70C50 14 190 14 232 70C190 126 50 126 8 70Z" />
+      <g clipPath="url(#eye-shape)">
+        <g className="eye-iris">
+          <circle className="iris-fill" cx="120" cy="70" r="40" />
+          <g clipPath="url(#iris-shape)" className="iris-waves">
+            <path d="M70 58q12-8 24 0t24 0t24 0t24 0t24 0" />
+            <path d="M70 72q12-8 24 0t24 0t24 0t24 0t24 0" />
+            <path d="M70 86q12-8 24 0t24 0t24 0t24 0t24 0" />
+          </g>
+          <circle className="pupil" cx="120" cy="70" r="13" />
+          <circle className="glint" cx="126" cy="64" r="3.5" />
+        </g>
+      </g>
+      <path className="eye-outline" d="M8 70C50 14 190 14 232 70C190 126 50 126 8 70Z" />
+    </svg>
+  );
 }
 
 export default function Home() {
@@ -115,16 +92,11 @@ export default function Home() {
   const [error, setError] = useState("");
   const [selectedFinding, setSelectedFinding] = useState("");
 
-  const hiddenFindings = useMemo(
-    () => inspection?.findings.filter((finding) => finding.category === "Hidden element") ?? [],
-    [inspection]
-  );
-
   async function analyze(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const entered = url.trim();
     if (!entered) {
-      setError("Enter a website URL before analyzing.");
+      setError("Enter a website address to inspect.");
       return;
     }
     const candidate = /^https?:\/\//i.test(entered) ? entered : `https://${entered}`;
@@ -149,222 +121,165 @@ export default function Home() {
       setInspection(result);
       setActiveUrl(result.url);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The inspection request failed.");
+      setError(caught instanceof Error ? caught.message : "The inspection request failed. Try again.");
     } finally {
       setLoading(false);
     }
   }
 
-  function choosePreset(presetUrl: string) {
-    setUrl(presetUrl);
-  }
+  const snapshot = Boolean(inspection?.previewHtml && !inspection.simulated);
+  const score = inspection ? voyage(inspection.findings) : null;
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="wordmark">
-          <span className="mark">
-            <Icon name="eye" />
-          </span>
-          <span>OdysSee</span>
-        </div>
+    <main className="shell">
+      <header className="top">
+        <span className="wordmark">OdysSee</span>
+        <span className="top-note">Public pages only. No cookies, no form data.</span>
       </header>
 
       <section className="hero">
-        <div className="eyebrow">A clearer view of the web</div>
-        <h1>Inspect a website.</h1>
-        <p className="hero-copy">
-          Enter a URL or choose a sample, then inspect its preview and hidden page activity.
-        </p>
-      </section>
+        <Eye scanning={loading} />
+        <h1>See through all.</h1>
+        <p className="lede">Paste a website and OdysSee charts what hides beneath it.</p>
 
-      <form className="controls" onSubmit={analyze}>
-        <label className="url-field">
-          <Icon name="globe" />
-          <span className="sr-only">Website URL</span>
-          <input
-            autoComplete="url"
-            className="url-input"
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder="Paste a website URL to inspect"
-            type="text"
-            value={url}
-          />
-        </label>
-        <div aria-label="Sample website presets" className="preset-strip">
-          <span className="preset-heading">Try a sample</span>
+        <form className="search" onSubmit={analyze}>
+          <label className="field">
+            <span className="sr-only">Website address</span>
+            <input
+              autoComplete="url"
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="example.com"
+              type="text"
+              value={url}
+            />
+          </label>
+          <button className="go" disabled={loading} type="submit">
+            {loading ? "Inspecting…" : "Inspect site"}
+          </button>
+        </form>
+
+        <div aria-label="Sample websites" className="presets">
+          <span>Or try</span>
           {PRESETS.map((preset) => (
             <button
               aria-pressed={url === preset.url}
-              className="preset-button"
               key={preset.url}
-              onClick={() => choosePreset(preset.url)}
+              onClick={() => setUrl(preset.url)}
               type="button"
             >
-              <span>{preset.label}</span>
-              <span className="preset-domain">{new URL(preset.url).hostname}</span>
+              {preset.label}
             </button>
           ))}
         </div>
-        <button className="analyze-button" disabled={loading} type="submit">
-          <Icon className={loading ? "spinner" : undefined} name={loading ? "loader" : "scan"} />
-          <span className="button-label">{loading ? "Inspecting…" : "Analyze Live DOM & Packets"}</span>
-        </button>
-      </form>
-      <p className="privacy-note">
-        <Icon name="shield" /> Only public HTTP(S) pages are fetched. Form values and cookies are
-        never collected.
-      </p>
-      {error && <div className="notice error" role="alert">{error}</div>}
 
-      <section aria-label="Inspection workspace" className="workspace">
+        {error && (
+          <div className="error" role="alert">
+            {error}
+          </div>
+        )}
+      </section>
+
+      <section aria-label="Inspection results" className="voyage">
         <div className="panel">
-          <div className="panel-header">
-            <div className="panel-title-wrap">
-              <span className="panel-icon"><Icon name="eye" /></span>
-              <span className="panel-title">X-Ray viewport</span>
-            </div>
-            {activeUrl ? (
-              <a
-                className="panel-caption viewport-link"
-                href={activeUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Open page ↗
+          <div className="panel-head">
+            <h2>The page</h2>
+            {activeUrl && (
+              <a href={activeUrl} rel="noreferrer" target="_blank">
+                Open in new tab
               </a>
-            ) : (
-              <span className="panel-caption">Preview</span>
             )}
           </div>
-          <div className="viewport-toolbar">
-            <span className="browser-dots"><i /><i /><i /></span>
-            <span>{activeUrl || "Waiting for a page…"}</span>
-            <Icon name="lock" />
-          </div>
-          <div className="frame-wrap">
+          <div className="frame">
             {activeUrl ? (
               <iframe
-                key={`${activeUrl}:${inspection?.previewHtml && !inspection.simulated ? "snapshot" : "live"}`}
+                key={`${activeUrl}:${snapshot ? "snapshot" : "live"}`}
                 className="target-frame"
                 referrerPolicy="no-referrer"
-                sandbox={inspection?.previewHtml && !inspection.simulated ? "" : "allow-scripts"}
-                src={inspection?.previewHtml && !inspection.simulated ? undefined : activeUrl}
-                srcDoc={
-                  inspection?.previewHtml && !inspection.simulated
-                    ? inspection.previewHtml
-                    : undefined
-                }
-                title={
-                  inspection?.previewHtml && !inspection.simulated
-                    ? "Sanitized read-only snapshot of inspected website"
-                    : "Live preview of inspected website"
-                }
+                sandbox={snapshot ? "" : "allow-scripts"}
+                src={snapshot ? undefined : activeUrl}
+                srcDoc={snapshot ? inspection?.previewHtml : undefined}
+                title={snapshot ? "Read-only snapshot of the inspected site" : "Live preview of the inspected site"}
               />
             ) : (
-              <div className="frame-empty">
-                <span className="frame-empty-icon"><Icon name="scan" /></span>
-                <strong>{loading ? "Fetching a page preview…" : "Your viewport is ready"}</strong>
-                <span>
-                  {loading
-                    ? "The inspector is fetching public HTML and preparing a page view."
-                    : "Enter a URL or choose a preset to load the page in the isolated viewport."}
-                </span>
-              </div>
-            )}
-            {activeUrl && (
-              <div className="frame-status">
-                <Icon name="eye" />
-                <span>
-                  {inspection?.simulated
-                    ? "Live preview · sample findings are simulated"
-                    : inspection?.previewHtml
-                      ? "Sanitized HTML snapshot · read only"
-                      : loading
-                        ? "Loading live preview…"
-                        : "Live preview"}
-                </span>
-              </div>
+              <p className="empty">
+                <strong>{loading ? "Fetching the page…" : "No page yet"}</strong>
+                {loading ? "Preparing a safe preview." : "Inspect a site and its preview appears here."}
+              </p>
             )}
           </div>
-          <div className="inspection-strip">
-            <div className="inspection-heading">
-              <span>Hidden selectors</span>
-              <span className="inspection-count">{hiddenFindings.length} detected</span>
-            </div>
-            <div className="selector-list">
-              {hiddenFindings.length ? (
-                hiddenFindings.map((finding) => (
-                  <button
-                    aria-pressed={selectedFinding === finding.id}
-                    className="selector-chip"
-                    key={finding.id}
-                    onClick={() => setSelectedFinding(finding.id)}
-                    title={finding.description}
-                    type="button"
-                  >
-                    {finding.selector ?? finding.description}
-                  </button>
-                ))
-              ) : (
-                <span className="selector-empty">
-                  {inspection ? "No hidden selectors found in the returned HTML." : "Run an inspection to surface hidden elements."}
-                </span>
-              )}
-            </div>
-          </div>
+          {activeUrl && (
+            <p className="frame-note">
+              {inspection?.simulated
+                ? "Live preview. Findings are a simulation because the page could not be read."
+                : snapshot
+                  ? "Read-only snapshot of the page."
+                  : "Live preview."}{" "}
+              Some sites block previews.
+            </p>
+          )}
         </div>
 
         <div className="panel">
-          <div className="panel-header">
-            <div className="panel-title-wrap">
-              <span className="panel-icon"><Icon name="activity" /></span>
-              <span className="panel-title">Behind the page</span>
-            </div>
+          <div className="panel-head">
+            <h2>Encounters</h2>
+            {inspection && <span className="count">{inspection.findings.length} found</span>}
           </div>
-          <div aria-live="polite" className="event-list">
+
+          {score && (
+            <div className={`hull hull-${score.tone}`}>
+              <div className="hull-top">
+                <strong>{score.rank}</strong>
+                <span>Hull {score.hull}%</span>
+              </div>
+              <div
+                aria-label={`Hull integrity ${score.hull} percent`}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={score.hull}
+                className="hull-bar"
+                role="meter"
+              >
+                <i style={{ width: `${score.hull}%` }} />
+              </div>
+              <p>
+                {score.high} high risk, {score.low} low risk
+              </p>
+            </div>
+          )}
+
+          <div aria-live="polite" className="encounters">
             {inspection ? (
               inspection.findings.map((finding) => (
-                <article
-                  className="event-card"
+                <button
+                  aria-pressed={selectedFinding === finding.id}
+                  className="card"
                   key={finding.id}
-                  onClick={() => setSelectedFinding(finding.id)}
-                  style={selectedFinding === finding.id ? { borderColor: "#d97706" } : undefined}
+                  onClick={() => setSelectedFinding(selectedFinding === finding.id ? "" : finding.id)}
+                  type="button"
                 >
-                  <div className="event-topline">
-                    <div className="event-kind">
-                      <Icon name={eventIcon(finding.category)} />
-                      {finding.category}
-                    </div>
+                  <span className="card-top">
+                    <span className="card-name">
+                      {ENCOUNTERS[finding.category]}
+                      <small>{finding.category}</small>
+                    </span>
                     <span className={severityClass(finding.severity)}>{finding.severity}</span>
-                  </div>
-                  <p className="event-description">{finding.description}</p>
-                  {finding.selector && <code className="event-selector">{finding.selector}</code>}
-                  {finding.source && <code className="event-selector">{finding.source}</code>}
-                </article>
+                  </span>
+                  <span className="card-text">{finding.description}</span>
+                  {finding.selector && <code>{finding.selector}</code>}
+                  {finding.source && <code>{finding.source}</code>}
+                </button>
               ))
             ) : (
-              <div className="stream-empty">
-                <Icon name="activity" />
-                <strong>{loading ? "Reading the page…" : "Nothing hidden. Yet."}</strong>
-                <span>
-                  {loading
-                    ? "Checking public HTML for concealed elements, outbound scripts, trackers, and forms."
-                    : "Run an inspection to turn the page’s public HTML into a chronological, human-readable event stream."}
-                </span>
-              </div>
+              <p className="empty">
+                <strong>{loading ? "Reading the page…" : "Calm waters"}</strong>
+                {loading
+                  ? "Looking for hidden elements, scripts, trackers and forms."
+                  : "Hidden elements, trackers and forms will surface here."}
+              </p>
             )}
           </div>
         </div>
       </section>
-
-      <p className="disclaimer">
-        Some sites block previews. Choose “Open page” to view one separately.
-      </p>
-      <footer className="footer-note">
-        <span>ODYSSEE / WEB INSPECTION STUDIO</span>
-        <span>Public HTML only · no cookies · no form submission</span>
-      </footer>
     </main>
   );
 }
